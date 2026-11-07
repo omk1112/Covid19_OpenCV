@@ -18,7 +18,7 @@ Classifies chest X-ray images into **COVID**, **Normal**, **Lung Opacity**, or *
   <img src="https://img.shields.io/badge/TensorFlow-MobileNetV2-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow">
 </p>
 
-<p><a href="#quick-start">Quick start</a> · <a href="#try-one-x-ray">Try one X-ray</a> · <a href="#results">Results</a> · <a href="#how-it-works">How it works</a></p>
+<p><a href="#run-the-website">Run the website</a> · <a href="#quick-start">Train in Colab</a> · <a href="#results">Results</a> · <a href="#how-it-works">How it works</a></p>
 
 </div>
 
@@ -44,9 +44,29 @@ Classifies chest X-ray images into **COVID**, **Normal**, **Lung Opacity**, or *
 
 The notebook uses Google Colab paths and Colab download helpers, so Colab is the easiest way to run it without adapting the environment.
 
-### Fresh-runtime training note
+The training callback setup is placed before the model training cell so the notebook can run top-to-bottom in a fresh Colab runtime.
 
-The current notebook places the <code>BEST_MODEL_PATH</code> and <code>callbacks</code> setup cell after the <code>model.fit(...)</code> cell, and that setup cell has extra leading spaces. In a fresh runtime, move that setup above the training cell and remove the leading spaces before selecting **Run all**. Otherwise, training can fail because <code>callbacks</code> has not been defined yet.
+## Run the website
+
+The repository includes a Streamlit upload-and-predict interface. It accepts a chest X-ray image and displays the predicted class with scores for all four categories.
+
+Before using predictions, export the trained model from Colab. After the notebook has trained and loaded the best checkpoint, run:
+
+    from google.colab import files
+    files.download(str(BEST_MODEL_PATH))
+
+Copy the downloaded <code>mobilenetv2_best.keras</code> file into the repository's <code>models</code> folder. The website expects this path:
+
+    models/mobilenetv2_best.keras
+
+Then start the site locally from the repository root:
+
+    python -m pip install -r requirements.txt
+    streamlit run app.py
+
+To make the app public, deploy the GitHub repository with [Streamlit Community Cloud](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy) and select <code>app.py</code> as the entry point. The app source is ready, but it cannot return predictions until the trained checkpoint is added.
+
+The app processes uploaded images in memory and does not save the X-ray to disk. Its result download contains the filename and class scores only.
 
 ## Try one X-ray
 
@@ -109,14 +129,9 @@ These are results saved in the notebook, not a guarantee of performance on new i
 4. **Train:** use an ImageNet-pretrained MobileNetV2 feature extractor with a global average pooling layer, dropout, and a four-class softmax output. Class weights help account for uneven class sizes.
 5. **Evaluate:** report accuracy, per-class metrics, ROC-AUC, confusion matrices, and example errors.
 
-## What this repository currently provides
-
-The repository contains the training and evaluation notebook. It does **not** currently include a hosted website, prediction API, or a pretrained model file. Viewers can run the notebook in Colab and try a single image there after training.
-
-This README is a project landing page; it does not itself run model inference. A public upload-and-predict website would also need a saved model artifact and a deployed inference service connected to a web interface.
-
 ## Data and responsible use
 
 The notebook downloads the [COVID-19 Radiography Database on Kaggle](https://www.kaggle.com/datasets/tawsifurrahman/covid19-radiography-database). Review the dataset's terms and attribution requirements before reusing or redistributing its images.
 
 This is an educational computer-vision experiment. It may make errors, and its performance on the notebook's test split does not establish clinical safety or suitability. Do not upload identifiable or private medical images to a public notebook or service.
+
