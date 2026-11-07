@@ -2,7 +2,7 @@
 
 Place the trained Keras checkpoint here with this exact filename:
 
-    mobilenetv2_best.keras
+    covid_detection_model.keras
 
 The web app loads this file by default. You can also set the
 <code>COVID19_MODEL_PATH</code> environment variable to point to a checkpoint
@@ -10,17 +10,14 @@ elsewhere.
 
 ## Export the checkpoint from Colab
 
-After training the notebook and loading the best checkpoint, run:
+The matching three-class training notebook saves this file after training. To
+download it from Colab, run:
 
     from google.colab import files
-    import tensorflow as tf
+    files.download("/content/covid_detection_model.keras")
 
-    exported_path = "/content/mobilenetv2_best.keras"
-    model = tf.keras.models.load_model(BEST_MODEL_PATH, compile=False)
-    model.save(exported_path)
-    files.download(exported_path)
-
-Copy the downloaded <code>mobilenetv2_best.keras</code> file into this
-<code>models</code> directory. The checkpoint is not included in the source
-repository, so predictions remain disabled until the file is present.
+Copy the downloaded <code>covid_detection_model.keras</code> file into this
+<code>models</code> directory. Its three output classes are ordered as COVID,
+Normal, and Viral Pneumonia. The class order and preprocessing match the
+three-class training notebook.
 

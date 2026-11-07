@@ -21,11 +21,11 @@ st.set_page_config(
 )
 
 APP_DIR = Path(__file__).resolve().parent
-DEFAULT_MODEL_PATH = APP_DIR / "models" / "mobilenetv2_best.keras"
+DEFAULT_MODEL_PATH = APP_DIR / "models" / "covid_detection_model.keras"
 MODEL_PATH = Path(
     os.environ.get("COVID19_MODEL_PATH", str(DEFAULT_MODEL_PATH))
 ).expanduser()
-LABELS = ("COVID", "Normal", "Lung_Opacity", "Viral Pneumonia")
+LABELS = ("COVID", "Normal", "Viral Pneumonia")
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 NOTEBOOK_URL = (
     "https://colab.research.google.com/github/omk1112/Covid19_OpenCV/"
@@ -210,6 +210,11 @@ def load_model(model_path: str, modified_time_ns: int) -> Any:
     import tensorflow as tf
 
     model = tf.keras.models.load_model(model_path, compile=False)
+    input_shape = tuple(model.input_shape[1:])
+    if input_shape != (224, 224, 3):
+        raise ValueError(
+            f"Expected model input shape (224, 224, 3); got {input_shape}."
+        )
     output_shape = model.output_shape
     if isinstance(output_shape, list) or output_shape[-1] != len(LABELS):
         raise ValueError(
@@ -221,13 +226,13 @@ def load_model(model_path: str, modified_time_ns: int) -> Any:
 def preprocess_xray(image_bytes: bytes) -> np.ndarray:
     """Match the notebook's OpenCV and MobileNetV2 input preprocessing."""
     encoded = np.frombuffer(image_bytes, dtype=np.uint8)
-    image = cv2.imdecode(encoded, cv2.IMREAD_GRAYSCALE)
+    image = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError("OpenCV could not decode this image.")
 
-    image = cv2.resize(image, (224, 224), interpolation=cv2.INTER_AREA)
-    image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB).astype(np.float32)
-    image = image / 127.5 - 1.0
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image = cv2.resize(image, (224, 224))
+    image = image.astype(np.float32) / 255.0
     return np.expand_dims(image, axis=0)
 
 
@@ -254,7 +259,7 @@ def make_prediction(model: Any, image_bytes: bytes) -> np.ndarray:
     if not np.isfinite(scores).all():
         raise ValueError("The model returned a non-finite score.")
     if (scores < 0).any() or (scores > 1.001).any():
-        raise ValueError("The model output is not a four-class softmax.")
+        raise ValueError("The model output is not a three-class softmax.")
     total = float(scores.sum())
     if total <= 0:
         raise ValueError("The model returned an empty prediction.")
@@ -278,8 +283,8 @@ st.markdown(
 )
 
 stat_a, stat_b, stat_c = st.columns(3)
-stat_a.metric("Output categories", "04", help="COVID, Normal, Lung Opacity, Viral Pneumonia")
-stat_b.metric("Model input", "224 × 224", help="Grayscale image converted to three channels")
+stat_a.metric("Output categories", "03", help="COVID, Normal, Viral Pneumonia")
+stat_b.metric("Model input", "224 × 224", help="RGB image scaled to the 0–1 range")
 stat_c.metric("Pipeline", "OpenCV + MobileNetV2", help="OpenCV preprocessing with a TensorFlow/Keras classifier")
 
 st.write("")
@@ -291,7 +296,7 @@ with left:
         st.subheader("Upload a chest X-ray")
         st.markdown(
             '<p class="muted-copy">Use a clear PNG, JPG, JPEG, or BMP image. '
-            'The app converts it to grayscale and resizes it to the model input.</p>',
+            'The app converts it to RGB, resizes it, and scales pixels to 0–1.</p>',
             unsafe_allow_html=True,
         )
         uploaded = st.file_uploader(
@@ -436,9 +441,9 @@ st.warning(
 
 with st.expander("How this demo handles your image"):
     st.write(
-        "The uploaded image is decoded in memory, converted to grayscale, "
-        "resized to 224 × 224 with OpenCV, converted to three channels, and "
-        "scaled to the MobileNetV2 range of −1 to 1. This app does not write "
+        "The uploaded image is decoded in memory, converted from BGR to RGB, "
+        "resized to 224 × 224 with OpenCV, and scaled to the 0–1 range used "
+        "by the model's training notebook. This app does not write "
         "the uploaded image to disk. The JSON download contains the filename "
         "and model scores, not the image."
     )
